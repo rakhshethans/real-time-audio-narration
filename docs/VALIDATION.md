@@ -18,8 +18,9 @@ not promises for other hardware. Read the unverified section before judging proj
 * **35 pytest tests passed** after the final implementation, covering parsing, tracking signals,
   state changes, bounded memory/queues, stale speech, cancellation, failures and shutdown.
   These tests use mocked camera/models/audio where appropriate. They do not measure recognition
-  accuracy. Ruff static checks passed. CI is configured, but remote CI results must be checked
-  separately after publication.
+  accuracy. Ruff static checks passed. The [GitHub CI run for source commit 941584b](https://github.com/rakhshethans/real-time-audio-narration/actions/runs/38317193328)
+  also passed all four core-test jobs: Windows/Linux with Python 3.11/3.12. These jobs do not
+  install or exercise the real models, webcam, native UI or audio devices.
 * The actual Qt window was rendered offscreen and visually inspected. The committed screenshot
   is the real idle UI, not a mockup. The offscreen renderer needed an explicitly loaded system
   font; no Windows font file is redistributed. Screen-reader usability was not tested.
