@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "real-time-audio-narration"
+version = "0.1.0"
+description = "Local temporal vision-language narration of live webcam scenes"
+requires-python = ">=3.11,<3.13"
+license = "AGPL-3.0-only"
+dependencies = [
+  "numpy==2.2.6", "opencv-python==4.12.0.88", "PySide6==6.9.3",
+  "torch==2.8.0", "torchvision==0.23.0", "transformers==4.57.6",
+  "accelerate==1.12.0", "huggingface-hub==0.36.0", "Pillow==11.3.0",
+  "ultralytics==8.4.23", "lap==0.5.12", "kokoro==0.9.4",
+  "sounddevice==0.5.3", "psutil==7.1.0",
+  "misaki[en]==0.9.4", "spacy==3.8.16", "espeakng-loader==0.2.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.2", "ruff==0.14.0"]
+system-voice = ["pyttsx3==2.99"]
+quantization = ["bitsandbytes==0.48.1"]
+
+[project.scripts]
+audio-narration = "audio_narration.main:main"
+audio-narration-setup = "audio_narration.setup_models:main"
+audio-narration-benchmark = "audio_narration.benchmark:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
