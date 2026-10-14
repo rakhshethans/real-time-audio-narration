@@ -116,12 +116,16 @@ class MainWindow(QMainWindow):
         self.mode.addItems(["hybrid", "baseline"])
         self.mode.setCurrentText(settings.mode)
         form.addRow("&Inference mode", self.mode)
+        self.scene_model = QComboBox()
+        self.scene_model.addItems(["smol", "qwen"])
+        self.scene_model.setCurrentText(settings.vlm_backend)
+        form.addRow("Scene model (smol = fast)", self.scene_model)
         self.detail = QComboBox()
         self.detail.addItems(["brief", "standard", "detailed"])
         self.detail.setCurrentText(settings.detail)
         form.addRow("&Description detail", self.detail)
         self.interval = QDoubleSpinBox()
-        self.interval.setRange(2, 120)
+        self.interval.setRange(0.25, 120)
         self.interval.setValue(settings.min_interval)
         self.interval.setSuffix(" s minimum")
         form.addRow("Analysis spacing", self.interval)
@@ -147,6 +151,7 @@ class MainWindow(QMainWindow):
             self.camera,
             self.scan,
             self.mode,
+            self.scene_model,
             self.detail,
             self.interval,
             self.threshold,
@@ -234,9 +239,10 @@ class MainWindow(QMainWindow):
                 self.settings,
                 camera=int(self.camera.currentText()),
                 mode=self.mode.currentText(),
+                vlm_backend=self.scene_model.currentText(),
                 detail=self.detail.currentText(),
                 min_interval=self.interval.value(),
-                refresh_interval=max(self.interval.value(), 15),
+                refresh_interval=max(self.interval.value(), 2),
                 confidence=self.threshold.value(),
                 audio=self.audio.isChecked(),
                 speech_rate=self.rate.value(),

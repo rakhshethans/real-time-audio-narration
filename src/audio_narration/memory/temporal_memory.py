@@ -56,7 +56,7 @@ class TemporalMemory:
                 text = " ".join((changes or new_actions)[:2])
                 priority, summary = 2, False
             elif new_facts:
-                text, priority, summary = " ".join(new_facts[:2]), 1, False
+                text, priority, summary = observation.description, 1, False
             elif now - self.last_summary >= self.summary_interval:
                 text, priority, summary = observation.description, 0, True
             else:

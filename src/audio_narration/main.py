@@ -26,6 +26,7 @@ def main():
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--mode", choices=["hybrid", "baseline"], default="hybrid")
     parser.add_argument("--device", choices=["auto", "cpu", "cuda", "mps"], default="auto")
+    parser.add_argument("--vlm", choices=["smol", "qwen"], default="smol")
     parser.add_argument("--quantize", action="store_true")
     parser.add_argument("--no-audio", action="store_true")
     parser.add_argument("--tts-backend", choices=["kokoro", "system"], default="kokoro")
@@ -45,6 +46,7 @@ def main():
             camera=args.camera,
             mode=args.mode,
             device=args.device,
+            vlm_backend=args.vlm,
             quantize=args.quantize,
             audio=not args.no_audio,
             tts_backend=args.tts_backend,

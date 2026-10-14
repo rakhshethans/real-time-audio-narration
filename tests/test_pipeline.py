@@ -144,3 +144,84 @@ def test_capture_releases_camera_on_failure():
             factory=lambda index: camera,
         )
     assert camera.released
+
+
+def test_speech_is_warmed_before_scene_requests():
+    ready, entered = Event(), Event()
+    messages = []
+
+    class Speech:
+        def __init__(self, settings):
+            pass
+
+        def warm_up(self):
+            entered.set()
+            ready.wait(2)
+
+        def speak(self, text, cancel, first_audio, metric, **kwargs):
+            first_audio(0.01)
+
+    pipeline = Pipeline(
+        Settings(mode="baseline"),
+        lambda *a: messages.append(a),
+        fake_camera,
+        vlm_factory=FakeModel,
+        tts_factory=Speech,
+    )
+    pipeline.start()
+    try:
+        assert entered.wait(2)
+        assert not any(k == "description" for k, _ in messages)
+        ready.set()
+        wait_for(lambda: any(k == "spoken" for k, _ in messages))
+    finally:
+        ready.set()
+        pipeline.request_stop()
+        assert pipeline.join() == []
+
+
+def test_deadline_cancels_slow_scene_without_speaking():
+    expired = Event()
+    messages = []
+
+    class Slow(FakeModel):
+        def analyse(self, frames, objects, previous, cancel):
+            assert cancel.wait(1)
+            expired.set()
+            raise InterruptedError()
+
+    pipeline = Pipeline(
+        Settings(mode="baseline", audio=False, max_age=0.05),
+        lambda *a: messages.append(a),
+        fake_camera,
+        vlm_factory=Slow,
+    )
+    pipeline.start()
+    try:
+        assert expired.wait(2)
+        assert not any(k in {"spoken", "description"} for k, _ in messages)
+    finally:
+        pipeline.request_stop()
+        assert pipeline.join() == []
+
+
+def test_audio_load_failure_keeps_text_descriptions_available():
+    messages = []
+
+    def fail(settings):
+        raise RuntimeError("No speech backend")
+
+    pipeline = Pipeline(
+        Settings(mode="baseline"),
+        lambda *a: messages.append(a),
+        fake_camera,
+        vlm_factory=FakeModel,
+        tts_factory=fail,
+    )
+    pipeline.start()
+    try:
+        wait_for(lambda: any(k == "description" for k, _ in messages))
+        assert any(k == "error" and "No speech backend" in t for k, t in messages)
+    finally:
+        pipeline.request_stop()
+        assert pipeline.join() == []

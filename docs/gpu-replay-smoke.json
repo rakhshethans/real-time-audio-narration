@@ -1,0 +1,15 @@
+{
+  "source": "public still image replay at 30Hz; no webcam action accuracy test",
+  "gpu": "NVIDIA GeForce RTX 5070 Laptop GPU",
+  "torch": "2.8.0+cu128",
+  "first_audio_write_observed": true,
+  "metrics": {
+    "detection_ms": 15.999999995983671,
+    "vlm_ms": 985.0000000005821,
+    "vlm_calls_per_min": 5.030462243586267,
+    "synthesis_ms": 265.99999999598367,
+    "time_to_first_audio_ms": 375.0,
+    "event_to_audio_ms": 2109.0000000040163
+  },
+  "errors": []
+}

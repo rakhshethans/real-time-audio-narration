@@ -8,6 +8,7 @@ complete licence texts or legal advice.
 | --- | --- | --- |
 | Ultralytics code and YOLO26 weights | [AGPL-3.0](https://github.com/ultralytics/ultralytics/blob/main/LICENSE), [YOLO26 documentation](https://docs.ultralytics.com/models/yolo26/) | Public corresponding source; no Enterprise licence needed for this AGPL project. |
 | ByteTrack original work | [MIT](https://github.com/ifzhang/ByteTrack/blob/main/LICENSE) | The application uses the implementation inside Ultralytics, under its package terms. Credit Yifu Zhang and ByteTrack contributors. |
+| SmolVLM2-256M-Video-Instruct weights | [Apache-2.0](https://huggingface.co/HuggingFaceTB/SmolVLM2-256M-Video-Instruct) | Hugging Face Smol Models Research; pinned official revision. |
 | Qwen3-VL-2B-Instruct weights | [Apache-2.0 model card](https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct) | Qwen team. Pin the official revision and preserve upstream licence/notice on redistribution. |
 | Kokoro code | [Apache-2.0](https://github.com/hexgrad/kokoro/blob/main/LICENSE) | hexgrad and contributors. |
 | Kokoro-82M v1 weights and `af_heart` pack | [Apache-2.0 model repository](https://huggingface.co/hexgrad/Kokoro-82M), [voices](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md) | Voice file is fetched from the same licensed model repository. No voice files shipped here. |

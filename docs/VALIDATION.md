@@ -1,5 +1,67 @@
 # Validation record
 
+## Version 0.2.0 validation (14 October 2026)
+
+The laptop has an **NVIDIA RTX 5070 Laptop GPU, 8,151 MiB VRAM**, with driver 617.14.
+The original Python environment contained `torch 2.8.0+cpu`; CUDA was absent because the wrong
+build was installed, not because the machine lacked an NVIDIA GPU. CUDA 12.8 PyTorch and
+torchvision were installed and a real CUDA tensor operation succeeded. `pip check` passed.
+
+The first installation attempt exhausted temporary disk space. A clean installation of GPU
+libraries and the remaining torchvision dependency recovered the environment. The published
+installer checks for **12 GiB free temporary disk space** before a new CUDA download, preserves
+models, and verifies a real GPU operation. The dependency download is roughly 3.5 GB compressed.
+The installer was syntax-checked; a fresh double-click installation was not replayed end to end.
+
+**41 automated tests pass**, including speech warm-up ordering, deadline cancellation, compact
+response parsing, caption validation and audio expiry without truncating an already-started
+sentence. Ruff checks pass. These tests exercise core behaviour with injected backends.
+
+### Successful real pipeline check
+
+A cached official public bus image was replayed at approximately 30 Hz through the **actual
+YOLO26/ByteTrack → SmolVLM2 → temporal memory → scheduler → Kokoro → sounddevice pipeline**.
+The scene model and Kokoro both used CUDA; outputs came from real model inference. Warm-up audio
+was discarded, then a real scene sentence was sent to the default audio output device.
+
+| Measurement | Observed value |
+| --- | --- |
+| Latest detector inference | 16 ms |
+| Latest fast VLM interpretation | 985 ms |
+| First speech chunk synthesis | 266 ms |
+| Speech call to first audio write | 375 ms |
+| Sampled frame to first audio write | **2,109 ms** |
+| Reported pipeline errors | None |
+| Workers remaining after shutdown | None |
+
+This is **one real-adapter replay smoke test**, not a benchmark across activities or laptops.
+Initialization is excluded from the frame-to-audio interval. The VLM timing is the latest call
+at snapshot time, not necessarily the call that generated the spoken sentence. Audio-write
+timing is a proxy for physical audibility; human speaker onset was not independently measured.
+No current live-webcam activity accuracy, latency percentiles or worst-case guarantee is claimed.
+
+### Why the default changed
+
+Qwen on CUDA still repeatedly exceeded the five-second deadline. SmolVLM2's structured JSON
+responses were faster but could be malformed, so fast mode uses a natural model-generated
+sentence and spaCy noun/verb extraction for bounded structured observations. It retains actual
+visual inference and temporal clips; it does not substitute scripted captions or object lists.
+The smaller model can miss activities and details. Its extracted facts/actions and text similarity
+are heuristic, and need annotated moving-video evaluation.
+
+CPU Kokoro took approximately 6.3 seconds for the tested sentence, preventing timely speech.
+Moving Kokoro to CUDA and warming it with a representative sentence resolved that bottleneck
+in the successful check. Serializing model initialization fixed a concurrent Transformers import
+failure observed during testing. Default expiry is now five seconds on all backends; the former
+180-second CPU allowance was removed. A deadline cannot force native operations to return
+instantaneously, but cancelled or expired observations are rejected before new speech starts.
+
+The three-second first-audio target was met in this check; it is not certified for every scene.
+Moving activity evaluation, sustained webcam testing, CPU fast-mode timing, MPS, quantization,
+screen-reader testing and baseline/hybrid video benchmarks remain open.
+
+## Original 0.1.0 validation (historical)
+
 Checks were performed on Windows x64 with Python 3.12.14, PyTorch 2.8.0 CPU and approximately
 31.3 GiB system RAM. CUDA was unavailable. Results below are observations from this build,
 not promises for other hardware. Read the unverified section before judging project readiness.

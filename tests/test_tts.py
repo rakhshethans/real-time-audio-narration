@@ -72,3 +72,33 @@ def test_expired_description_does_not_synthesize_or_play(monkeypatch):
     )
     speaker.speak("Expired scene.", Event(), lambda t: calls.append(t), lambda t: None, deadline=-1)
     assert calls == []
+
+
+def test_started_sentence_finishes_after_first_audio_deadline(monkeypatch):
+    from audio_narration.narration import tts
+
+    clock, writes = [0.0], []
+    monkeypatch.setattr(tts.time, "monotonic", lambda: clock[0])
+    speaker = KokoroSpeech.__new__(KokoroSpeech)
+    speaker.settings, speaker.voice = Settings(), "test"
+    speaker.pipeline = lambda *a, **kw: iter([("text", "phonemes", np.ones(3000))])
+
+    class Stream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def write(self, samples):
+            writes.append(samples)
+            clock[0] += 0.1 if len(writes) == 1 else 2.0
+
+        def abort(self):
+            raise AssertionError("A started sentence should finish unless cancelled")
+
+    monkeypatch.setitem(
+        sys.modules, "sounddevice", SimpleNamespace(OutputStream=lambda **kwargs: Stream())
+    )
+    speaker.speak("A short sentence.", Event(), lambda t: None, lambda t: None, deadline=1)
+    assert len(writes) == 3

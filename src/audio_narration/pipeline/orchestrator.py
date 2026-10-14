@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 import time
-from threading import Event, Lock, Thread
+from threading import Event, Lock, Thread, Timer
 from typing import Callable
 
 from audio_narration.camera.capture import capture
@@ -34,12 +34,16 @@ class Pipeline:
         self.frames = FrameBuffer(settings.frame_count, settings.frame_interval)
         self.stop_event, self.paused, self.analysis_cancel = Event(), Event(), Event()
         self.lock = Lock()
+        self.load_lock = Lock()
         self.metrics: dict[str, float] = {}
         self.detections: DetectionBatch | None = None
         self.memory = TemporalMemory(summary_interval=settings.summary_interval)
         self.gate = AnalysisGate(settings.mode, settings.min_interval, settings.refresh_interval)
-        self.max_age = settings.max_age or 30.0
+        self.max_age = settings.max_age or 5.0
         self.scheduler = NarrationScheduler(self.max_age)
+        self.audio_ready = Event()
+        if not settings.audio:
+            self.audio_ready.set()
         self.threads: list[Thread] = []
         self.enabled = True
         self.audio_enabled = settings.audio
@@ -122,7 +126,8 @@ class Pipeline:
         if self.stop_event.is_set():
             return
         self.emit("detection", "Loading YOLO26 / ByteTrack")
-        detector = self.detector_factory(self.settings)
+        with self.load_lock:
+            detector = self.detector_factory(self.settings)
         changes = ChangeDetector()
         sequence = -1
         while not self.stop_event.is_set():
@@ -145,21 +150,38 @@ class Pipeline:
                 return
         if self.stop_event.is_set():
             return
-        self.emit("scene", "Loading Qwen3-VL locally")
-        model = self.vlm_factory(self.settings)
-        if getattr(model, "device", None) == "cpu" and self.settings.max_age is None:
-            self.max_age = self.scheduler.max_age = 180.0
+        self.emit("scene", f"Loading {self.settings.vlm_backend} locally")
+        with self.load_lock:
+            model = self.vlm_factory(self.settings)
+            self.emit("scene", "Warming scene model")
+            getattr(model, "warm_up", lambda: None)()
+        if getattr(model, "device", None) == "cpu":
+            self.emit(
+                "error",
+                "CPU mode may miss the 5-second deadline. "
+                "For NVIDIA hardware, rerun the GPU installer.",
+            )
         self.emit(
             "hardware",
             f"{getattr(model, 'device', 'injected test backend')}; "
             f"observation expiry {self.max_age:.0f} s",
         )
-        self.emit("scene", "Ready")
+        self.emit(
+            "scene",
+            "Ready"
+            if self.audio_ready.is_set() or not self.audio_enabled
+            else "Waiting for speech warm-up",
+        )
         while not self.stop_event.wait(0.1):
             clip = self.frames.clip()
             now = time.monotonic()
             with self.lock:
-                allowed = self.enabled and not self.paused.is_set() and not self.stop_event.is_set()
+                allowed = (
+                    self.enabled
+                    and not self.paused.is_set()
+                    and not self.stop_event.is_set()
+                    and (not self.audio_enabled or self.audio_ready.is_set())
+                )
                 due = self.gate.due(now)
                 if not allowed or not due or not clip or now - clip[-1].timestamp > 1.5:
                     continue
@@ -173,9 +195,14 @@ class Pipeline:
             self.emit("scene", "Interpreting a sequence of frames")
             start = time.monotonic()
             self.calls += 1
+            deadline_timer = Timer(max(0, self.max_age - (start - clip[-1].timestamp)), token.set)
+            deadline_timer.daemon = True
+            deadline_timer.start()
             try:
                 observation = model.analyse(clip, objects, self.memory.latest, token)
             except InterruptedError:
+                if time.monotonic() - clip[-1].timestamp >= self.max_age:
+                    self.emit("scene", "Analysis exceeded freshness deadline; skipped")
                 continue
             except Exception as exc:
                 self.error("scene", str(exc))
@@ -183,6 +210,7 @@ class Pipeline:
                     self.gate.signal({"retry"})
                 continue
             finally:
+                deadline_timer.cancel()
                 self.metric("vlm_ms", (time.monotonic() - start) * 1000)
                 self.metric(
                     "vlm_calls_per_min",
@@ -209,6 +237,19 @@ class Pipeline:
     def _audio(self):
         speaker = None
         while not self.stop_event.is_set():
+            if self.audio_enabled and speaker is None:
+                try:
+                    self.audio_ready.clear()
+                    self.emit("audio", f"Loading and warming {self.settings.tts_backend} speech")
+                    with self.load_lock:
+                        speaker = self.tts_factory(self.settings)
+                        getattr(speaker, "warm_up", lambda: None)()
+                    self.emit("audio", "Ready")
+                except Exception as exc:
+                    self.error("audio", str(exc))
+                    self.audio_enabled = False
+                finally:
+                    self.audio_ready.set()
             entry = self.scheduler.take()
             if entry is None:
                 continue

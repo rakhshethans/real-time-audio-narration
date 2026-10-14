@@ -68,3 +68,25 @@ def test_single_frame_motion_only_response_is_rejected():
 
     with pytest.raises(ValueError):
         enforce_temporal_evidence(Observation(0, "A person walked away."), False)
+
+
+def test_compact_response_preserves_structured_temporal_fields():
+    observation = parse_observation(
+        '{"s":"A person lifts a cup.", "f":["A desk"], '
+        '"a":["lifting a cup"], "c":["The cup was lifted."], '
+        '"u":true}',
+        1,
+    )
+    assert observation.facts == ("A desk",)
+    assert observation.actions == ("lifting a cup",)
+    assert observation.changes == ("The cup was lifted.",)
+    assert observation.uncertain
+
+
+def test_fast_caption_rejects_markup_instead_of_speaking_it():
+    from audio_narration.vision.vlm import validate_caption
+
+    assert validate_caption("A person appears to be using a laptop.")
+    for invalid in ["", "{}", "```json", "1234", "x" * 501]:
+        with pytest.raises(ValueError):
+            validate_caption(invalid)
